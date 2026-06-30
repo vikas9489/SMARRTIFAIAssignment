@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">ClothesFit</string>
+    <string name="camera_permission_required">Camera permission is required for the try-on experience</string>
+    <string name="pose_detected">Pose Detected</string>
+    <string name="loading_model">Loading pose model…</string>
+</resources>
