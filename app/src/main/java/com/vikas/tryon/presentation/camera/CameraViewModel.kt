@@ -11,7 +11,6 @@ import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarker
-import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarkerOptions
 import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarkerResult
 import com.vikas.tryon.data.model.Garment
 import com.vikas.tryon.data.repository.AvatarRepository
@@ -62,7 +61,7 @@ class CameraViewModel @Inject constructor(
     private fun initializeLandmarker() {
         viewModelScope.launch {
             try {
-                val options = PoseLandmarkerOptions.builder()
+                val options = PoseLandmarker.PoseLandmarkerOptions.builder()
                     .setBaseOptions(
                         BaseOptions.builder()
                             .setModelAssetPath("pose_landmarker_lite.task")
