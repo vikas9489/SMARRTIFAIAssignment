@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="300dp"
+    android:viewportWidth="200"
+    android:viewportHeight="300">
+
+    <!-- Skirt (flared) -->
+    <path
+        android:fillColor="#F8F8F8"
+        android:strokeColor="#BBBBBB"
+        android:strokeWidth="2"
+        android:pathData="M58,130 Q30,180 20,290 L180,290 Q170,180 142,130Z" />
+
+    <!-- Bodice -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:strokeColor="#BBBBBB"
+        android:strokeWidth="2"
+        android:pathData="M62,50 L50,48 L50,135 L150,135 L150,48 L138,50 Q122,34 100,30 Q78,34 62,50Z" />
+
+    <!-- Neckline -->
+    <path
+        android:fillColor="#EEEEEE"
+        android:strokeColor="#BBBBBB"
+        android:strokeWidth="1.5"
+        android:pathData="M62,50 Q78,34 100,30 Q122,34 138,50 Q120,64 100,66 Q80,64 62,50Z" />
+
+    <!-- Waist band / seam -->
+    <path
+        android:fillColor="#EEEEEE"
+        android:strokeColor="#BBBBBB"
+        android:strokeWidth="2"
+        android:pathData="M50,128 L150,128 L150,138 L50,138Z" />
+
+    <!-- Left thin strap -->
+    <path
+        android:fillColor="#EEEEEE"
+        android:strokeColor="#BBBBBB"
+        android:strokeWidth="1.5"
+        android:pathData="M50,48 L50,60" />
+
+    <!-- Right thin strap -->
+    <path
+        android:fillColor="#EEEEEE"
+        android:strokeColor="#BBBBBB"
+        android:strokeWidth="1.5"
+        android:pathData="M150,48 L150,60" />
+
+    <!-- Skirt seam detail -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#DDDDDD"
+        android:strokeWidth="1"
+        android:pathData="M100,138 Q95,200 90,290" />
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#DDDDDD"
+        android:strokeWidth="1"
+        android:pathData="M100,138 Q105,200 110,290" />
+
+    <!-- Hem -->
+    <path
+        android:fillColor="#EEEEEE"
+        android:strokeColor="#BBBBBB"
+        android:strokeWidth="1.5"
+        android:pathData="M20,282 L180,282 L180,290 L20,290Z" />
+</vector>

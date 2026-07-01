@@ -2,6 +2,9 @@ package com.vikas.tryon.presentation.garment
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -142,15 +145,26 @@ private fun GarmentGridItem(
                         .background(garment.color.copy(alpha = 0.12f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (garment.scannedBitmap != null) {
-                        Image(
+                    when {
+                        garment.scannedBitmap != null -> Image(
                             bitmap = garment.scannedBitmap.asImageBitmap(),
                             contentDescription = garment.name,
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Fit
                         )
-                    } else {
-                        GarmentShape(garment = garment)
+                        garment.imageRes != 0 -> Image(
+                            painter = painterResource(garment.imageRes),
+                            contentDescription = garment.name,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(12.dp),
+                            contentScale = ContentScale.Fit,
+                            colorFilter = ColorFilter.tint(
+                                garment.color,
+                                BlendMode.Multiply
+                            )
+                        )
+                        else -> GarmentShape(garment = garment)
                     }
                 }
                 Column(modifier = Modifier.padding(12.dp)) {

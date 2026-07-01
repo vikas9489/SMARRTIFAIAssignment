@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="260dp"
+    android:viewportWidth="200"
+    android:viewportHeight="260">
+
+    <!-- Body + long sleeves -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:strokeColor="#888888"
+        android:strokeWidth="2"
+        android:pathData="M60,48 L14,58 L12,205 L55,210 L55,248 L145,248 L145,210 L188,205 L186,58 L140,48 L118,30 L108,50 L100,54 L92,50 L82,30Z" />
+
+    <!-- Left lapel -->
+    <path
+        android:fillColor="#EEEEEE"
+        android:strokeColor="#888888"
+        android:strokeWidth="1.5"
+        android:pathData="M82,30 L60,48 Q72,58 85,60 L100,54 L92,50Z" />
+
+    <!-- Right lapel -->
+    <path
+        android:fillColor="#E4E4E4"
+        android:strokeColor="#888888"
+        android:strokeWidth="1.5"
+        android:pathData="M118,30 L140,48 Q128,58 115,60 L100,54 L108,50Z" />
+
+    <!-- Left chest pocket -->
+    <path
+        android:fillColor="#DDDDDD"
+        android:strokeColor="#888888"
+        android:strokeWidth="1"
+        android:pathData="M65,90 L88,90 L88,108 L65,108Z" />
+
+    <!-- Buttons -->
+    <path android:fillColor="#888888" android:pathData="M100,90 m-3,0 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0" />
+    <path android:fillColor="#888888" android:pathData="M100,115 m-3,0 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0" />
+    <path android:fillColor="#888888" android:pathData="M100,140 m-3,0 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0" />
+    <path android:fillColor="#888888" android:pathData="M100,165 m-3,0 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0" />
+
+    <!-- Center closure line -->
+    <path android:fillColor="@android:color/transparent"
+        android:strokeColor="#AAAAAA" android:strokeWidth="1.5"
+        android:pathData="M100,54 L100,248" />
+
+    <!-- Cuffs -->
+    <path android:fillColor="#DDDDDD" android:strokeColor="#888888" android:strokeWidth="1.5"
+        android:pathData="M12,193 L55,200 L55,210 L12,205Z" />
+    <path android:fillColor="#DDDDDD" android:strokeColor="#888888" android:strokeWidth="1.5"
+        android:pathData="M188,193 L145,200 L145,210 L188,205Z" />
+
+    <!-- Welt pockets -->
+    <path android:fillColor="@android:color/transparent"
+        android:strokeColor="#888888" android:strokeWidth="1.5"
+        android:pathData="M62,160 L90,160" />
+    <path android:fillColor="@android:color/transparent"
+        android:strokeColor="#888888" android:strokeWidth="1.5"
+        android:pathData="M110,160 L138,160" />
+</vector>

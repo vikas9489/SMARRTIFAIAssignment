@@ -16,6 +16,7 @@ import com.vikas.tryon.data.model.Garment
 import com.vikas.tryon.data.repository.AvatarRepository
 import com.vikas.tryon.data.repository.GarmentRepository
 import com.vikas.tryon.domain.usecase.EstimateMeasurementsUseCase
+import com.vikas.tryon.utils.GarmentBitmapLoader
 import com.vikas.tryon.utils.LandmarkSmoother
 import com.vikas.tryon.utils.SmoothedLandmarks
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -32,7 +33,8 @@ class CameraViewModel @Inject constructor(
     private val garmentRepository: GarmentRepository,
     private val avatarRepository: AvatarRepository,
     private val estimateMeasurementsUseCase: EstimateMeasurementsUseCase,
-    private val landmarkSmoother: LandmarkSmoother
+    private val landmarkSmoother: LandmarkSmoother,
+    private val garmentBitmapLoader: GarmentBitmapLoader
 ) : ViewModel() {
 
     // Raw result still used for measurement estimation (needs full result)
@@ -45,6 +47,10 @@ class CameraViewModel @Inject constructor(
 
     private val _selectedGarment = MutableStateFlow<Garment?>(null)
     val selectedGarment: StateFlow<Garment?> = _selectedGarment.asStateFlow()
+
+    // Pre-rendered bitmap for the camera canvas (scanned or drawable-based)
+    private val _garmentBitmap = MutableStateFlow<android.graphics.Bitmap?>(null)
+    val garmentBitmap: StateFlow<android.graphics.Bitmap?> = _garmentBitmap.asStateFlow()
 
     private val _isLandmarkerReady = MutableStateFlow(false)
     val isLandmarkerReady: StateFlow<Boolean> = _isLandmarkerReady.asStateFlow()
@@ -61,7 +67,14 @@ class CameraViewModel @Inject constructor(
         initializeLandmarker()
         viewModelScope.launch {
             garmentRepository.selectedGarmentId.collect { id ->
-                _selectedGarment.value = id?.let { garmentRepository.getGarmentById(it) }
+                val garment = id?.let { garmentRepository.getGarmentById(it) }
+                _selectedGarment.value = garment
+                _garmentBitmap.value = when {
+                    garment == null -> null
+                    garment.scannedBitmap != null -> garment.scannedBitmap
+                    garment.imageRes != 0 -> garmentBitmapLoader.load(garment.imageRes, garment.color)
+                    else -> null
+                }
             }
         }
     }

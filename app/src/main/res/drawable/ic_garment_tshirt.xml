@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="240dp"
+    android:viewportWidth="200"
+    android:viewportHeight="240">
+
+    <!-- Main body + sleeves -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:strokeColor="#CCCCCC"
+        android:strokeWidth="2"
+        android:pathData="M60,48 L18,56 L16,94 L55,100 L55,232 L145,232 L145,100 L184,94 L182,56 L140,48 Q122,34 100,32 Q78,34 60,48Z" />
+
+    <!-- Collar / neckline -->
+    <path
+        android:fillColor="#EEEEEE"
+        android:strokeColor="#CCCCCC"
+        android:strokeWidth="1.5"
+        android:pathData="M60,48 Q78,34 100,32 Q122,34 140,48 Q120,62 100,64 Q80,62 60,48Z" />
+
+    <!-- Left sleeve cuff -->
+    <path
+        android:fillColor="#EEEEEE"
+        android:strokeColor="#CCCCCC"
+        android:strokeWidth="1"
+        android:pathData="M16,86 L55,96 L55,100 L16,94Z" />
+
+    <!-- Right sleeve cuff -->
+    <path
+        android:fillColor="#EEEEEE"
+        android:strokeColor="#CCCCCC"
+        android:strokeWidth="1"
+        android:pathData="M184,86 L145,96 L145,100 L184,94Z" />
+
+    <!-- Side seam lines for fabric detail -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#DDDDDD"
+        android:strokeWidth="1"
+        android:pathData="M55,100 L55,232" />
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#DDDDDD"
+        android:strokeWidth="1"
+        android:pathData="M145,100 L145,232" />
+</vector>

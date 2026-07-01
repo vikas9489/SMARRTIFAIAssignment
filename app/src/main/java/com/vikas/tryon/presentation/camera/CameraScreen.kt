@@ -41,6 +41,7 @@ fun CameraScreen(
     val poseResult by viewModel.poseResult.collectAsState()
     val smoothedLandmarks by viewModel.smoothedLandmarks.collectAsState()
     val selectedGarment by viewModel.selectedGarment.collectAsState()
+    val garmentBitmap by viewModel.garmentBitmap.collectAsState()
     val isFrontCamera by viewModel.isFrontCamera.collectAsState()
     val showGarment by viewModel.showGarment.collectAsState()
 
@@ -99,6 +100,7 @@ fun CameraScreen(
                 GarmentOverlay(
                     landmarks = smoothedLandmarks,
                     garment = selectedGarment,
+                    garmentBitmap = garmentBitmap,
                     modifier = Modifier.fillMaxSize()
                 )
             }

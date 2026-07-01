@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="240dp"
+    android:viewportWidth="200"
+    android:viewportHeight="240">
+
+    <!-- Body + sleeves -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:strokeColor="#AAAAAA"
+        android:strokeWidth="2"
+        android:pathData="M60,50 L18,58 L16,96 L55,102 L55,232 L145,232 L145,102 L184,96 L182,58 L140,50 L118,38 L110,55 L100,60 L90,55 L82,38Z" />
+
+    <!-- Polo collar left flap -->
+    <path
+        android:fillColor="#EEEEEE"
+        android:strokeColor="#AAAAAA"
+        android:strokeWidth="1.5"
+        android:pathData="M82,38 L60,50 Q75,56 90,55 L100,60 L90,40Z" />
+
+    <!-- Polo collar right flap -->
+    <path
+        android:fillColor="#E8E8E8"
+        android:strokeColor="#AAAAAA"
+        android:strokeWidth="1.5"
+        android:pathData="M118,38 L140,50 Q125,56 110,55 L100,60 L110,40Z" />
+
+    <!-- Button placket -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#BBBBBB"
+        android:strokeWidth="1.5"
+        android:pathData="M100,60 L100,140" />
+
+    <!-- Buttons -->
+    <path android:fillColor="#AAAAAA" android:pathData="M100,68 m-2.5,0 a2.5,2.5 0 1,0 5,0 a2.5,2.5 0 1,0 -5,0" />
+    <path android:fillColor="#AAAAAA" android:pathData="M100,82 m-2.5,0 a2.5,2.5 0 1,0 5,0 a2.5,2.5 0 1,0 -5,0" />
+    <path android:fillColor="#AAAAAA" android:pathData="M100,96 m-2.5,0 a2.5,2.5 0 1,0 5,0 a2.5,2.5 0 1,0 -5,0" />
+
+    <!-- Sleeve cuffs -->
+    <path android:fillColor="#EEEEEE" android:strokeColor="#AAAAAA" android:strokeWidth="1"
+        android:pathData="M16,88 L55,98 L55,102 L16,96Z" />
+    <path android:fillColor="#EEEEEE" android:strokeColor="#AAAAAA" android:strokeWidth="1"
+        android:pathData="M184,88 L145,98 L145,102 L184,96Z" />
+</vector>

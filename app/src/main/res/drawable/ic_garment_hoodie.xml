@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="260dp"
+    android:viewportWidth="200"
+    android:viewportHeight="260">
+
+    <!-- Body + long sleeves -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:strokeColor="#999999"
+        android:strokeWidth="2"
+        android:pathData="M62,52 L16,62 L14,200 L55,204 L55,248 L145,248 L145,204 L186,200 L184,62 L138,52 Q128,36 118,30 L100,26 L82,30 Q72,36 62,52Z" />
+
+    <!-- Hood -->
+    <path
+        android:fillColor="#EEEEEE"
+        android:strokeColor="#999999"
+        android:strokeWidth="1.5"
+        android:pathData="M62,52 Q72,36 82,30 L100,26 L118,30 Q128,36 138,52 Q120,65 100,67 Q80,65 62,52Z" />
+
+    <!-- Hood inner shadow -->
+    <path
+        android:fillColor="#DDDDDD"
+        android:pathData="M70,50 Q80,34 100,30 Q120,34 130,50 Q115,60 100,62 Q85,60 70,50Z" />
+
+    <!-- Center zipper -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#888888"
+        android:strokeWidth="2"
+        android:pathData="M100,67 L100,248" />
+
+    <!-- Zipper pull -->
+    <path android:fillColor="#888888"
+        android:pathData="M96,78 L104,78 L104,86 L96,86Z" />
+
+    <!-- Kangaroo pocket -->
+    <path
+        android:fillColor="#DDDDDD"
+        android:strokeColor="#999999"
+        android:strokeWidth="1.5"
+        android:pathData="M68,172 Q68,160 100,158 Q132,160 132,172 L132,205 L68,205Z" />
+
+    <!-- Cuffs -->
+    <path android:fillColor="#DDDDDD" android:strokeColor="#999999" android:strokeWidth="1"
+        android:pathData="M14,190 L55,196 L55,204 L14,200Z" />
+    <path android:fillColor="#DDDDDD" android:strokeColor="#999999" android:strokeWidth="1"
+        android:pathData="M186,190 L145,196 L145,204 L186,200Z" />
+
+    <!-- Ribbed hem -->
+    <path android:fillColor="#DDDDDD" android:strokeColor="#999999" android:strokeWidth="1"
+        android:pathData="M55,238 L145,238 L145,248 L55,248Z" />
+</vector>

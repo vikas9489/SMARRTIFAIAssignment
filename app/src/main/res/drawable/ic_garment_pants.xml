@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="280dp"
+    android:viewportWidth="200"
+    android:viewportHeight="280">
+
+    <!-- Waistband -->
+    <path
+        android:fillColor="#DDDDDD"
+        android:strokeColor="#999999"
+        android:strokeWidth="1.5"
+        android:pathData="M38,18 L162,18 L165,45 L35,45Z" />
+
+    <!-- Left leg -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:strokeColor="#999999"
+        android:strokeWidth="2"
+        android:pathData="M35,45 L38,18 L100,20 L105,145 L90,270 L42,268 L30,145Z" />
+
+    <!-- Right leg -->
+    <path
+        android:fillColor="#F5F5F5"
+        android:strokeColor="#999999"
+        android:strokeWidth="2"
+        android:pathData="M165,45 L162,18 L100,20 L95,145 L110,270 L158,268 L170,145Z" />
+
+    <!-- Center seam -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#BBBBBB"
+        android:strokeWidth="1.5"
+        android:pathData="M100,20 L100,145" />
+
+    <!-- Belt loops -->
+    <path android:fillColor="#CCCCCC" android:strokeColor="#999999" android:strokeWidth="1"
+        android:pathData="M55,18 L60,18 L60,30 L55,30Z" />
+    <path android:fillColor="#CCCCCC" android:strokeColor="#999999" android:strokeWidth="1"
+        android:pathData="M95,18 L105,18 L105,30 L95,30Z" />
+    <path android:fillColor="#CCCCCC" android:strokeColor="#999999" android:strokeWidth="1"
+        android:pathData="M140,18 L145,18 L145,30 L140,30Z" />
+
+    <!-- Fly / button -->
+    <path android:fillColor="@android:color/transparent"
+        android:strokeColor="#BBBBBB" android:strokeWidth="1"
+        android:pathData="M100,30 L100,50" />
+    <path android:fillColor="#AAAAAA"
+        android:pathData="M100,36 m-2.5,0 a2.5,2.5 0 1,0 5,0 a2.5,2.5 0 1,0 -5,0" />
+
+    <!-- Left pocket -->
+    <path android:fillColor="@android:color/transparent"
+        android:strokeColor="#BBBBBB" android:strokeWidth="1.5"
+        android:pathData="M42,40 Q52,38 62,44" />
+
+    <!-- Right pocket -->
+    <path android:fillColor="@android:color/transparent"
+        android:strokeColor="#BBBBBB" android:strokeWidth="1.5"
+        android:pathData="M158,40 Q148,38 138,44" />
+
+    <!-- Left hem -->
+    <path android:fillColor="#DDDDDD" android:strokeColor="#999999" android:strokeWidth="1"
+        android:pathData="M42,260 L90,262 L90,270 L42,268Z" />
+    <!-- Right hem -->
+    <path android:fillColor="#DDDDDD" android:strokeColor="#999999" android:strokeWidth="1"
+        android:pathData="M158,260 L110,262 L110,270 L158,268Z" />
+</vector>

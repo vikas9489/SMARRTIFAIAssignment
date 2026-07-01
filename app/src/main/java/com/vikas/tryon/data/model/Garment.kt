@@ -1,6 +1,7 @@
 package com.vikas.tryon.data.model
 
 import android.graphics.Bitmap
+import androidx.annotation.DrawableRes
 import androidx.compose.ui.graphics.Color
 
 data class Garment(
@@ -9,7 +10,8 @@ data class Garment(
     val category: GarmentCategory,
     val color: Color,
     val description: String,
-    val scannedBitmap: Bitmap? = null  // non-null for user-scanned garments
+    @DrawableRes val imageRes: Int = 0,
+    val scannedBitmap: Bitmap? = null
 ) {
     val isScanned: Boolean get() = scannedBitmap != null
 }

@@ -20,6 +20,7 @@ import com.vikas.tryon.utils.SmoothedLandmarks
 fun GarmentOverlay(
     landmarks: SmoothedLandmarks?,
     garment: Garment?,
+    garmentBitmap: Bitmap? = null,
     modifier: Modifier = Modifier
 ) {
     Canvas(modifier = modifier) {
@@ -46,9 +47,10 @@ fun GarmentOverlay(
         val laX = landmarks.getX(27) * w;  val laY = landmarks.getY(27) * h
         val raX = landmarks.getX(28) * w;  val raY = landmarks.getY(28) * h
 
-        if (garment.scannedBitmap != null) {
+        // Use pre-rendered bitmap (from drawable or scanned) if available
+        if (garmentBitmap != null) {
             drawScannedGarment(
-                bitmap = garment.scannedBitmap,
+                bitmap = garmentBitmap,
                 lsX = lsX, lsY = lsY, rsX = rsX, rsY = rsY,
                 lhX = lhX, lhY = lhY, rhX = rhX, rhY = rhY,
                 alpha = garmentAlpha,
