@@ -9,6 +9,7 @@ import com.vikas.tryon.presentation.camera.CameraScreen
 import com.vikas.tryon.presentation.garment.GarmentScreen
 import com.vikas.tryon.presentation.home.HomeScreen
 import com.vikas.tryon.presentation.measurement.MeasurementScreen
+import com.vikas.tryon.presentation.scan.ScanGarmentScreen
 
 @Composable
 fun AppNavigation() {
@@ -34,6 +35,12 @@ fun AppNavigation() {
         }
         composable(Screen.Garment.route) {
             GarmentScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onScanGarment = { navController.navigate(Screen.ScanGarment.route) }
+            )
+        }
+        composable(Screen.ScanGarment.route) {
+            ScanGarmentScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }

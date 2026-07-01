@@ -1,5 +1,6 @@
 package com.vikas.tryon.presentation.garment
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -10,6 +11,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
@@ -18,6 +20,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -28,6 +32,7 @@ import com.vikas.tryon.data.model.GarmentCategory
 @Composable
 fun GarmentScreen(
     onNavigateBack: () -> Unit,
+    onScanGarment: () -> Unit,
     viewModel: GarmentViewModel = hiltViewModel()
 ) {
     val selectedCategory by viewModel.selectedCategory.collectAsState()
@@ -41,7 +46,19 @@ fun GarmentScreen(
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
+                },
+                actions = {
+                    IconButton(onClick = onScanGarment) {
+                        Icon(Icons.Default.AddAPhoto, contentDescription = "Scan garment")
+                    }
                 }
+            )
+        },
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = onScanGarment,
+                icon = { Icon(Icons.Default.AddAPhoto, contentDescription = null) },
+                text = { Text("Scan Garment") }
             )
         }
     ) { padding ->
@@ -78,7 +95,7 @@ fun GarmentScreen(
 
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
-                contentPadding = PaddingValues(16.dp),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 88.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
@@ -118,7 +135,6 @@ private fun GarmentGridItem(
     ) {
         Box {
             Column {
-                // Garment visual
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -126,8 +142,16 @@ private fun GarmentGridItem(
                         .background(garment.color.copy(alpha = 0.12f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    // Stylized garment shape
-                    GarmentShape(garment = garment)
+                    if (garment.scannedBitmap != null) {
+                        Image(
+                            bitmap = garment.scannedBitmap.asImageBitmap(),
+                            contentDescription = garment.name,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit
+                        )
+                    } else {
+                        GarmentShape(garment = garment)
+                    }
                 }
                 Column(modifier = Modifier.padding(12.dp)) {
                     Text(
@@ -137,11 +161,29 @@ private fun GarmentGridItem(
                         maxLines = 1
                     )
                     Spacer(Modifier.height(2.dp))
-                    Text(
-                        garment.category.displayName,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            garment.category.displayName,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        if (garment.isScanned) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.tertiaryContainer,
+                                shape = RoundedCornerShape(4.dp)
+                            ) {
+                                Text(
+                                    "Scanned",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                )
+                            }
+                        }
+                    }
                     Spacer(Modifier.height(4.dp))
                     Text(
                         garment.description,
@@ -185,7 +227,7 @@ private fun GarmentShape(garment: Garment) {
                         RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp, bottomStart = 8.dp, bottomEnd = 8.dp)
                     GarmentCategory.BOTTOM ->
                         RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp, bottomStart = 20.dp, bottomEnd = 20.dp)
-                    GarmentCategory.DRESS ->
+                    GarmentCategory.DRESS, GarmentCategory.SCANNED ->
                         RoundedCornerShape(topStart = 25.dp, topEnd = 25.dp, bottomStart = 15.dp, bottomEnd = 15.dp)
                 }
             )

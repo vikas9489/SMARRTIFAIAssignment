@@ -1,5 +1,6 @@
 package com.vikas.tryon.data.model
 
+import android.graphics.Bitmap
 import androidx.compose.ui.graphics.Color
 
 data class Garment(
@@ -7,12 +8,16 @@ data class Garment(
     val name: String,
     val category: GarmentCategory,
     val color: Color,
-    val description: String
-)
+    val description: String,
+    val scannedBitmap: Bitmap? = null  // non-null for user-scanned garments
+) {
+    val isScanned: Boolean get() = scannedBitmap != null
+}
 
 enum class GarmentCategory(val displayName: String) {
     TOP("Tops"),
     BOTTOM("Bottoms"),
     DRESS("Dresses"),
-    OUTERWEAR("Outerwear")
+    OUTERWEAR("Outerwear"),
+    SCANNED("My Scans")
 }

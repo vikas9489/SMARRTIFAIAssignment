@@ -16,6 +16,8 @@ import com.vikas.tryon.data.model.Garment
 import com.vikas.tryon.data.repository.AvatarRepository
 import com.vikas.tryon.data.repository.GarmentRepository
 import com.vikas.tryon.domain.usecase.EstimateMeasurementsUseCase
+import com.vikas.tryon.utils.LandmarkSmoother
+import com.vikas.tryon.utils.SmoothedLandmarks
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,11 +31,17 @@ class CameraViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val garmentRepository: GarmentRepository,
     private val avatarRepository: AvatarRepository,
-    private val estimateMeasurementsUseCase: EstimateMeasurementsUseCase
+    private val estimateMeasurementsUseCase: EstimateMeasurementsUseCase,
+    private val landmarkSmoother: LandmarkSmoother
 ) : ViewModel() {
 
+    // Raw result still used for measurement estimation (needs full result)
     private val _poseResult = MutableStateFlow<PoseLandmarkerResult?>(null)
     val poseResult: StateFlow<PoseLandmarkerResult?> = _poseResult.asStateFlow()
+
+    // Smoothed landmarks used for rendering overlays
+    private val _smoothedLandmarks = MutableStateFlow<SmoothedLandmarks?>(null)
+    val smoothedLandmarks: StateFlow<SmoothedLandmarks?> = _smoothedLandmarks.asStateFlow()
 
     private val _selectedGarment = MutableStateFlow<Garment?>(null)
     val selectedGarment: StateFlow<Garment?> = _selectedGarment.asStateFlow()
@@ -91,6 +99,7 @@ class CameraViewModel @Inject constructor(
             val mpImage = BitmapImageBuilder(rotatedBitmap).build()
             val result = landmarker.detect(mpImage)
             _poseResult.value = result
+            _smoothedLandmarks.value = landmarkSmoother.smooth(result)
 
             if (result.landmarks().isNotEmpty()) {
                 estimateMeasurementsUseCase(result)
@@ -104,6 +113,7 @@ class CameraViewModel @Inject constructor(
 
     fun toggleCamera() {
         _isFrontCamera.value = !_isFrontCamera.value
+        landmarkSmoother.reset()
     }
 
     fun toggleGarmentOverlay() {

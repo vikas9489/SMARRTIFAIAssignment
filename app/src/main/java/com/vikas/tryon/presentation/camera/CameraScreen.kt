@@ -39,6 +39,7 @@ fun CameraScreen(
     val cameraPermission = rememberPermissionState(android.Manifest.permission.CAMERA)
     val isLandmarkerReady by viewModel.isLandmarkerReady.collectAsState()
     val poseResult by viewModel.poseResult.collectAsState()
+    val smoothedLandmarks by viewModel.smoothedLandmarks.collectAsState()
     val selectedGarment by viewModel.selectedGarment.collectAsState()
     val isFrontCamera by viewModel.isFrontCamera.collectAsState()
     val showGarment by viewModel.showGarment.collectAsState()
@@ -88,15 +89,15 @@ fun CameraScreen(
         )
 
         // Pose overlay
-        if (poseResult != null) {
+        if (smoothedLandmarks != null) {
             PoseLandmarkOverlay(
-                result = poseResult,
+                landmarks = smoothedLandmarks,
                 modifier = Modifier.fillMaxSize()
             )
 
             if (showGarment && selectedGarment != null) {
                 GarmentOverlay(
-                    result = poseResult,
+                    landmarks = smoothedLandmarks,
                     garment = selectedGarment,
                     modifier = Modifier.fillMaxSize()
                 )
@@ -200,7 +201,7 @@ fun CameraScreen(
         }
 
         // Pose detection status indicator
-        if (poseResult?.landmarks()?.isNotEmpty() == true) {
+        if (smoothedLandmarks != null) {
             Surface(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
