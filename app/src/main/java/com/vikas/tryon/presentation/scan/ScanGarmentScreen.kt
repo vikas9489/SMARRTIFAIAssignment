@@ -329,8 +329,14 @@ private fun capturePhoto(
         object : ImageCapture.OnImageCapturedCallback() {
             override fun onCaptureSuccess(image: ImageProxy) {
                 val bitmap = image.toBitmap()
+                val rotation = image.imageInfo.rotationDegrees
                 image.close()
-                onCaptured(bitmap)
+                // Apply sensor rotation so the garment always appears upright
+                val upright = if (rotation != 0) {
+                    val matrix = android.graphics.Matrix().apply { postRotate(rotation.toFloat()) }
+                    Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+                } else bitmap
+                onCaptured(upright)
             }
 
             override fun onError(exception: ImageCaptureException) {
