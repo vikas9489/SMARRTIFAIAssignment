@@ -21,10 +21,12 @@ import com.vikas.tryon.utils.LandmarkSmoother
 import com.vikas.tryon.utils.SmoothedLandmarks
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @HiltViewModel
@@ -69,11 +71,18 @@ class CameraViewModel @Inject constructor(
             garmentRepository.selectedGarmentId.collect { id ->
                 val garment = id?.let { garmentRepository.getGarmentById(it) }
                 _selectedGarment.value = garment
-                _garmentBitmap.value = when {
-                    garment == null -> null
-                    garment.scannedBitmap != null -> garment.scannedBitmap
-                    garment.imageRes != 0 -> garmentBitmapLoader.load(garment.imageRes, garment.color)
-                    else -> null
+                _garmentBitmap.value = withContext(Dispatchers.Default) {
+                    try {
+                        when {
+                            garment == null -> null
+                            garment.scannedBitmap != null -> garment.scannedBitmap
+                            garment.imageRes != 0 -> garmentBitmapLoader.load(garment.imageRes, garment.color)
+                            else -> null
+                        }
+                    } catch (e: Exception) {
+                        Log.e("CameraViewModel", "Garment bitmap load failed: ${e.message}")
+                        null
+                    }
                 }
             }
         }
@@ -90,8 +99,9 @@ class CameraViewModel @Inject constructor(
                     )
                     .setRunningMode(RunningMode.IMAGE)
                     .setNumPoses(1)
-                    .setMinPoseDetectionConfidence(0.5f)
-                    .setMinTrackingConfidence(0.5f)
+                    .setMinPoseDetectionConfidence(0.3f)
+                    .setMinPosePresenceConfidence(0.3f)
+                    .setMinTrackingConfidence(0.3f)
                     .build()
 
                 poseLandmarker = PoseLandmarker.createFromOptions(context, options)

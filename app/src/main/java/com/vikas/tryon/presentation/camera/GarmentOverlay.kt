@@ -3,6 +3,7 @@ package com.vikas.tryon.presentation.camera
 import android.graphics.Bitmap
 import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
@@ -21,8 +22,12 @@ fun GarmentOverlay(
     landmarks: SmoothedLandmarks?,
     garment: Garment?,
     garmentBitmap: Bitmap? = null,
+    isFrontCamera: Boolean = false,
     modifier: Modifier = Modifier
 ) {
+    // Cache ImageBitmap conversion — never call asImageBitmap() inside DrawScope
+    val imageBitmap = remember(garmentBitmap) { garmentBitmap?.asImageBitmap() }
+
     Canvas(modifier = modifier) {
         if (landmarks == null || garment == null || landmarks.size <= 28) return@Canvas
 
@@ -31,26 +36,34 @@ fun GarmentOverlay(
 
         val lsVis = landmarks.getVisibility(11)
         val rsVis = landmarks.getVisibility(12)
-        if (lsVis < 0.4f || rsVis < 0.4f) return@Canvas
+        if (lsVis < 0.2f || rsVis < 0.2f) return@Canvas
 
         val avgConfidence = ((lsVis + rsVis +
             landmarks.getVisibility(23) +
             landmarks.getVisibility(24)) / 4f).coerceIn(0f, 1f)
-        val garmentAlpha = (avgConfidence * 0.82f).coerceIn(0.2f, 0.82f)
+        val garmentAlpha = (avgConfidence * 0.85f).coerceIn(0.3f, 0.85f)
 
-        val lsX = landmarks.getX(11) * w;  val lsY = landmarks.getY(11) * h
-        val rsX = landmarks.getX(12) * w;  val rsY = landmarks.getY(12) * h
-        val lhX = landmarks.getX(23) * w;  val lhY = landmarks.getY(23) * h
-        val rhX = landmarks.getX(24) * w;  val rhY = landmarks.getY(24) * h
-        val leX = landmarks.getX(13) * w;  val leY = landmarks.getY(13) * h
-        val reX = landmarks.getX(14) * w;  val reY = landmarks.getY(14) * h
-        val laX = landmarks.getX(27) * w;  val laY = landmarks.getY(27) * h
-        val raX = landmarks.getX(28) * w;  val raY = landmarks.getY(28) * h
+        // Mirror X coords for front camera: the PreviewView is horizontally flipped
+        // but ImageAnalysis gives the raw sensor image, so landmarks need mirroring.
+        val getX = { idx: Int ->
+            val raw = landmarks.getX(idx) * w
+            if (isFrontCamera) w - raw else raw
+        }
+        val getY = { idx: Int -> landmarks.getY(idx) * h }
+
+        val lsX = getX(11);  val lsY = getY(11)
+        val rsX = getX(12);  val rsY = getY(12)
+        val lhX = getX(23);  val lhY = getY(23)
+        val rhX = getX(24);  val rhY = getY(24)
+        val leX = getX(13);  val leY = getY(13)
+        val reX = getX(14);  val reY = getY(14)
+        val laX = getX(27);  val laY = getY(27)
+        val raX = getX(28);  val raY = getY(28)
 
         // Use pre-rendered bitmap (from drawable or scanned) if available
-        if (garmentBitmap != null) {
+        if (imageBitmap != null) {
             drawScannedGarment(
-                bitmap = garmentBitmap,
+                image = imageBitmap,
                 lsX = lsX, lsY = lsY, rsX = rsX, rsY = rsY,
                 lhX = lhX, lhY = lhY, rhX = rhX, rhY = rhY,
                 alpha = garmentAlpha,
@@ -80,22 +93,26 @@ fun GarmentOverlay(
 }
 
 private fun DrawScope.drawScannedGarment(
-    bitmap: Bitmap,
+    image: ImageBitmap,
     lsX: Float, lsY: Float, rsX: Float, rsY: Float,
     lhX: Float, lhY: Float, rhX: Float, rhY: Float,
     alpha: Float,
     category: GarmentCategory
 ) {
-    val padding = (rsX - lsX) * 0.15f
-    val left = (lsX - padding).toInt().coerceAtLeast(0)
-    val top = (lsY - (lhY - lsY) * 0.1f).toInt().coerceAtLeast(0)
-    val right = (rsX + padding).toInt()
-    val bottom = (if (category == GarmentCategory.BOTTOM) rhY else lhY + padding).toInt()
+    // Use absolute shoulder spread so front/back camera both work
+    val shoulderSpread = kotlin.math.abs(rsX - lsX)
+    val padding = shoulderSpread * 0.15f
+    val left  = (minOf(lsX, rsX) - padding).toInt().coerceAtLeast(0)
+    val right = (maxOf(lsX, rsX) + padding).toInt().coerceAtMost(size.width.toInt())
+    val torsoH = kotlin.math.abs(lhY - lsY)
+    val top    = (minOf(lsY, lhY) - torsoH * 0.1f).toInt().coerceAtLeast(0)
+    val bottom = (if (category == GarmentCategory.BOTTOM) maxOf(rhY, lhY) + padding
+                  else maxOf(lhY, rhY) + padding).toInt().coerceAtMost(size.height.toInt())
     val dstW = (right - left).coerceAtLeast(1)
     val dstH = (bottom - top).coerceAtLeast(1)
 
     drawImage(
-        image = bitmap.asImageBitmap(),
+        image = image,
         dstOffset = IntOffset(left, top),
         dstSize = IntSize(dstW, dstH),
         alpha = alpha,

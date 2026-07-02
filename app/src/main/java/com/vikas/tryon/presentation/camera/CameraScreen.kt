@@ -101,6 +101,7 @@ fun CameraScreen(
                     landmarks = smoothedLandmarks,
                     garment = selectedGarment,
                     garmentBitmap = garmentBitmap,
+                    isFrontCamera = isFrontCamera,
                     modifier = Modifier.fillMaxSize()
                 )
             }
