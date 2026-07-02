@@ -336,7 +336,17 @@ private fun capturePhoto(
                     val matrix = android.graphics.Matrix().apply { postRotate(rotation.toFloat()) }
                     Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
                 } else bitmap
-                onCaptured(upright)
+
+                // Crop to match the on-screen framing guide (48dp padding on a ~400dp screen
+                // ≈ 12% margin). This removes clutter outside the guide before processing.
+                val mX = (upright.width * 0.12f).toInt()
+                val mY = (upright.height * 0.12f).toInt()
+                val cropped = Bitmap.createBitmap(
+                    upright, mX, mY,
+                    upright.width - 2 * mX,
+                    upright.height - 2 * mY
+                )
+                onCaptured(cropped)
             }
 
             override fun onError(exception: ImageCaptureException) {
