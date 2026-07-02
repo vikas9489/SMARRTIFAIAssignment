@@ -2,6 +2,8 @@ package com.vikas.tryon.presentation.measurement
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -11,13 +13,18 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.vikas.tryon.data.local.MeasurementHistoryEntity
 import com.vikas.tryon.data.model.BodyMeasurement
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -28,6 +35,7 @@ fun MeasurementScreen(
 ) {
     val measurement by viewModel.bodyMeasurement.collectAsState(initial = BodyMeasurement())
     val avatar by viewModel.avatar.collectAsState(initial = null)
+    val history by viewModel.measurementHistory.collectAsState(initial = emptyList())
 
     Scaffold(
         topBar = {
@@ -168,6 +176,19 @@ fun MeasurementScreen(
                 }
             }
 
+            // Measurement history from Room
+            if (history.isNotEmpty()) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Scan History",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                history.forEach { entry ->
+                    MeasurementHistoryRow(entry)
+                }
+            }
+
             Spacer(Modifier.height(8.dp))
             Text(
                 "* Measurements are estimated from pose landmarks and may vary ±5cm. " +
@@ -204,6 +225,46 @@ private fun MeasurementCard(
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold
             )
+        }
+    }
+}
+
+@Composable
+private fun MeasurementHistoryRow(entry: MeasurementHistoryEntity) {
+    val dateStr = remember(entry.timestampMs) {
+        SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault()).format(Date(entry.timestampMs))
+    }
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(dateStr, style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    "Chest ${entry.chestCm.roundToInt()} · Waist ${entry.waistCm.roundToInt()} · Hip ${entry.hipsCm.roundToInt()} cm",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            Surface(
+                color = MaterialTheme.colorScheme.primaryContainer,
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text(
+                    entry.suggestedSize,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                )
+            }
         }
     }
 }

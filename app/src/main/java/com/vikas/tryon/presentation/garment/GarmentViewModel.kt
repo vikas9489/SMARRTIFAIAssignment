@@ -23,6 +23,9 @@ class GarmentViewModel @Inject constructor(
 
     val selectedGarmentId: Flow<Int?> = garmentRepository.selectedGarmentId
 
+    // Favourite IDs from Room — updates reactively
+    val favouriteIds: Flow<List<Int>> = garmentRepository.favouriteIds
+
     val garments: List<Garment>
         get() = _selectedCategory.value
             ?.let { getGarmentsUseCase.getByCategory(it) }
@@ -34,5 +37,9 @@ class GarmentViewModel @Inject constructor(
 
     fun selectGarment(id: Int?) {
         garmentRepository.selectGarment(id)
+    }
+
+    fun toggleFavourite(garmentId: Int) {
+        garmentRepository.toggleFavourite(garmentId)
     }
 }

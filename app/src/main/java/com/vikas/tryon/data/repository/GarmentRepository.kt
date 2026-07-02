@@ -3,22 +3,34 @@ package com.vikas.tryon.data.repository
 import android.graphics.Bitmap
 import androidx.compose.ui.graphics.Color
 import com.vikas.tryon.R
+import com.vikas.tryon.data.local.GarmentFavouriteDao
+import com.vikas.tryon.data.local.GarmentFavouriteEntity
 import com.vikas.tryon.data.model.Garment
 import com.vikas.tryon.data.model.GarmentCategory
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class GarmentRepository @Inject constructor() {
+class GarmentRepository @Inject constructor(
+    private val favouriteDao: GarmentFavouriteDao
+) {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val _selectedGarmentId = MutableStateFlow<Int?>(null)
     val selectedGarmentId: Flow<Int?> = _selectedGarmentId.asStateFlow()
 
     private val _scannedGarments = MutableStateFlow<List<Garment>>(emptyList())
     val scannedGarments: Flow<List<Garment>> = _scannedGarments.asStateFlow()
+
+    // Favourite garment IDs persisted in Room
+    val favouriteIds: Flow<List<Int>> = favouriteDao.observeFavouriteIds()
 
     private val sampleGarments = listOf(
         Garment(1,  "Classic White Tee",  GarmentCategory.TOP,       Color(0xFFF5F5F5), "Minimalist cotton crew neck",    R.drawable.ic_garment_tshirt),
@@ -65,4 +77,12 @@ class GarmentRepository @Inject constructor() {
 
     fun getSelectedGarment(): Garment? =
         _selectedGarmentId.value?.let { id -> getGarmentById(id) }
+
+    fun toggleFavourite(garmentId: Int) {
+        scope.launch {
+            val count = favouriteDao.isFavourite(garmentId)
+            if (count > 0) favouriteDao.removeFavourite(garmentId)
+            else favouriteDao.addFavourite(GarmentFavouriteEntity(garmentId))
+        }
+    }
 }
