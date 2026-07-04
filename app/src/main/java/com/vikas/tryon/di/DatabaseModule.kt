@@ -5,6 +5,8 @@ import androidx.room.Room
 import com.vikas.tryon.data.local.AvatarDao
 import com.vikas.tryon.data.local.GarmentFavouriteDao
 import com.vikas.tryon.data.local.MeasurementDao
+import com.vikas.tryon.data.local.OutfitDao
+import com.vikas.tryon.data.local.ScannedGarmentDao
 import com.vikas.tryon.data.local.TryOnDatabase
 import dagger.Module
 import dagger.Provides
@@ -32,4 +34,10 @@ object DatabaseModule {
 
     @Provides
     fun provideGarmentFavouriteDao(db: TryOnDatabase): GarmentFavouriteDao = db.garmentFavouriteDao()
+
+    @Provides
+    fun provideScannedGarmentDao(db: TryOnDatabase): ScannedGarmentDao = db.scannedGarmentDao()
+
+    @Provides
+    fun provideOutfitDao(db: TryOnDatabase): OutfitDao = db.outfitDao()
 }

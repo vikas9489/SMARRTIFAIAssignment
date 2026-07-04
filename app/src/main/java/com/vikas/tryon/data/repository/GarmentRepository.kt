@@ -1,35 +1,43 @@
 package com.vikas.tryon.data.repository
 
+import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import androidx.compose.ui.graphics.Color
 import com.vikas.tryon.R
 import com.vikas.tryon.data.local.GarmentFavouriteDao
 import com.vikas.tryon.data.local.GarmentFavouriteEntity
+import com.vikas.tryon.data.local.ScannedGarmentDao
+import com.vikas.tryon.data.local.ScannedGarmentEntity
 import com.vikas.tryon.data.model.Garment
 import com.vikas.tryon.data.model.GarmentCategory
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class GarmentRepository @Inject constructor(
-    private val favouriteDao: GarmentFavouriteDao
+    @ApplicationContext private val context: Context,
+    private val favouriteDao: GarmentFavouriteDao,
+    private val scannedGarmentDao: ScannedGarmentDao
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val _selectedGarmentId = MutableStateFlow<Int?>(null)
     val selectedGarmentId: Flow<Int?> = _selectedGarmentId.asStateFlow()
 
-    private val _scannedGarments = MutableStateFlow<List<Garment>>(emptyList())
-    val scannedGarments: Flow<List<Garment>> = _scannedGarments.asStateFlow()
+    // Scanned garments loaded from Room + disk on every change
+    val scannedGarments: Flow<List<Garment>> = scannedGarmentDao.observeAll()
+        .map { entities -> entities.mapNotNull { it.toGarment() } }
+        .flowOn(Dispatchers.IO)
 
-    // Favourite garment IDs persisted in Room
     val favouriteIds: Flow<List<Int>> = favouriteDao.observeFavouriteIds()
 
     private val sampleGarments = listOf(
@@ -47,29 +55,12 @@ class GarmentRepository @Inject constructor(
         Garment(12, "Striped Tee",         GarmentCategory.TOP,       Color(0xFF607D8B), "Breton stripe sailor top",        R.drawable.ic_garment_tshirt)
     )
 
-    private var nextScannedId = 100
-
-    fun getAllGarments(): List<Garment> = sampleGarments + _scannedGarments.value
+    fun getAllGarments(): List<Garment> = sampleGarments
 
     fun getGarmentsByCategory(category: GarmentCategory): List<Garment> =
-        if (category == GarmentCategory.SCANNED) _scannedGarments.value
-        else sampleGarments.filter { it.category == category }
+        sampleGarments.filter { it.category == category }
 
-    fun getGarmentById(id: Int): Garment? = getAllGarments().find { it.id == id }
-
-    fun addScannedGarment(name: String, bitmap: Bitmap, category: GarmentCategory): Garment {
-        val garment = Garment(
-            id = nextScannedId++,
-            name = name,
-            category = category,
-            color = Color(0xFF9E9E9E),
-            description = "Scanned garment",
-            scannedBitmap = bitmap
-        )
-        _scannedGarments.value = _scannedGarments.value + garment
-        _selectedGarmentId.value = garment.id
-        return garment
-    }
+    fun getGarmentById(id: Int): Garment? = sampleGarments.find { it.id == id }
 
     fun selectGarment(id: Int?) {
         _selectedGarmentId.value = id
@@ -78,11 +69,63 @@ class GarmentRepository @Inject constructor(
     fun getSelectedGarment(): Garment? =
         _selectedGarmentId.value?.let { id -> getGarmentById(id) }
 
+    fun addScannedGarment(name: String, bitmap: Bitmap, category: GarmentCategory): Garment {
+        val id = (System.currentTimeMillis() % Int.MAX_VALUE).toInt()
+        scope.launch {
+            val file = saveBitmapToFile(bitmap, id)
+            scannedGarmentDao.insert(
+                ScannedGarmentEntity(
+                    id = id,
+                    name = name.ifBlank { "Scanned Garment" },
+                    category = category.name,
+                    bitmapPath = file.absolutePath
+                )
+            )
+        }
+        // Return immediately so the UI can navigate — Flow will update shortly
+        val garment = Garment(
+            id = id,
+            name = name.ifBlank { "Scanned Garment" },
+            category = category,
+            color = Color(0xFF9E9E9E),
+            description = "Scanned garment",
+            scannedBitmap = bitmap
+        )
+        _selectedGarmentId.value = garment.id
+        return garment
+    }
+
     fun toggleFavourite(garmentId: Int) {
         scope.launch {
             val count = favouriteDao.isFavourite(garmentId)
             if (count > 0) favouriteDao.removeFavourite(garmentId)
             else favouriteDao.addFavourite(GarmentFavouriteEntity(garmentId))
         }
+    }
+
+    private suspend fun saveBitmapToFile(bitmap: Bitmap, id: Int): File =
+        withContext(Dispatchers.IO) {
+            val dir = File(context.filesDir, "garments").also { it.mkdirs() }
+            val file = File(dir, "$id.png")
+            file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            file
+        }
+
+    private fun ScannedGarmentEntity.toGarment(): Garment? {
+        val file = File(bitmapPath)
+        if (!file.exists()) return null
+        // Trim transparent margins — older scans were saved with padding around
+        // the garment, which breaks overlay sizing.
+        val bitmap = BitmapFactory.decodeFile(bitmapPath)
+            ?.let { com.vikas.tryon.utils.BitmapUtils.trimTransparent(it) }
+            ?: return null
+        return Garment(
+            id = id,
+            name = name,
+            category = runCatching { GarmentCategory.valueOf(category) }.getOrDefault(GarmentCategory.SCANNED),
+            color = Color(0xFF9E9E9E),
+            description = "Scanned garment",
+            scannedBitmap = bitmap
+        )
     }
 }

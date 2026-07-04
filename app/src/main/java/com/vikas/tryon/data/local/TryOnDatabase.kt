@@ -7,13 +7,17 @@ import androidx.room.RoomDatabase
     entities = [
         AvatarEntity::class,
         MeasurementHistoryEntity::class,
-        GarmentFavouriteEntity::class
+        GarmentFavouriteEntity::class,
+        ScannedGarmentEntity::class,
+        OutfitEntity::class
     ],
-    version = 1,
+    version = 3,
     exportSchema = false
 )
 abstract class TryOnDatabase : RoomDatabase() {
     abstract fun avatarDao(): AvatarDao
     abstract fun measurementDao(): MeasurementDao
     abstract fun garmentFavouriteDao(): GarmentFavouriteDao
+    abstract fun scannedGarmentDao(): ScannedGarmentDao
+    abstract fun outfitDao(): OutfitDao
 }

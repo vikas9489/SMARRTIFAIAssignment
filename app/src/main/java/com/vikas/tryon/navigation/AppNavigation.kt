@@ -9,6 +9,7 @@ import com.vikas.tryon.presentation.camera.CameraScreen
 import com.vikas.tryon.presentation.garment.GarmentScreen
 import com.vikas.tryon.presentation.home.HomeScreen
 import com.vikas.tryon.presentation.measurement.MeasurementScreen
+import com.vikas.tryon.presentation.outfit.OutfitScreen
 import com.vikas.tryon.presentation.scan.ScanGarmentScreen
 
 @Composable
@@ -23,14 +24,16 @@ fun AppNavigation() {
             HomeScreen(
                 onStartTryOn = { navController.navigate(Screen.Camera.route) },
                 onOpenAvatar = { navController.navigate(Screen.Avatar.route) },
-                onOpenGarments = { navController.navigate(Screen.Garment.route) }
+                onOpenGarments = { navController.navigate(Screen.Garment.route) },
+                onOpenOutfits = { navController.navigate(Screen.Outfit.route) }
             )
         }
         composable(Screen.Camera.route) {
             CameraScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onOpenGarments = { navController.navigate(Screen.Garment.route) },
-                onOpenMeasurements = { navController.navigate(Screen.Measurement.route) }
+                onOpenMeasurements = { navController.navigate(Screen.Measurement.route) },
+                onOpenOutfits = { navController.navigate(Screen.Outfit.route) }
             )
         }
         composable(Screen.Garment.route) {
@@ -51,6 +54,11 @@ fun AppNavigation() {
         }
         composable(Screen.Measurement.route) {
             MeasurementScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        composable(Screen.Outfit.route) {
+            OutfitScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }

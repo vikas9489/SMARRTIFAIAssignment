@@ -41,7 +41,7 @@ fun GarmentOverlay(
         val avgConfidence = ((lsVis + rsVis +
             landmarks.getVisibility(23) +
             landmarks.getVisibility(24)) / 4f).coerceIn(0f, 1f)
-        val garmentAlpha = (avgConfidence * 0.85f).coerceIn(0.3f, 0.85f)
+        val garmentAlpha = (avgConfidence * 1.0f).coerceIn(0.6f, 0.92f)
 
         // Mirror X coords for front camera: the PreviewView is horizontally flipped
         // but ImageAnalysis gives the raw sensor image, so landmarks need mirroring.
@@ -66,8 +66,12 @@ fun GarmentOverlay(
                 image = imageBitmap,
                 lsX = lsX, lsY = lsY, rsX = rsX, rsY = rsY,
                 lhX = lhX, lhY = lhY, rhX = rhX, rhY = rhY,
+                leX = leX, reX = reX,
                 alpha = garmentAlpha,
-                category = garment.category
+                category = garment.category,
+                screenW = w, screenH = h,
+                lhVis = landmarks.getVisibility(23),
+                rhVis = landmarks.getVisibility(24)
             )
         } else {
             when (garment.category) {
@@ -96,18 +100,51 @@ private fun DrawScope.drawScannedGarment(
     image: ImageBitmap,
     lsX: Float, lsY: Float, rsX: Float, rsY: Float,
     lhX: Float, lhY: Float, rhX: Float, rhY: Float,
+    leX: Float, reX: Float,
     alpha: Float,
-    category: GarmentCategory
+    category: GarmentCategory,
+    screenW: Float, screenH: Float,
+    lhVis: Float, rhVis: Float
 ) {
-    // Use absolute shoulder spread so front/back camera both work
-    val shoulderSpread = kotlin.math.abs(rsX - lsX)
-    val padding = shoulderSpread * 0.15f
-    val left  = (minOf(lsX, rsX) - padding).toInt().coerceAtLeast(0)
-    val right = (maxOf(lsX, rsX) + padding).toInt().coerceAtMost(size.width.toInt())
-    val torsoH = kotlin.math.abs(lhY - lsY)
-    val top    = (minOf(lsY, lhY) - torsoH * 0.1f).toInt().coerceAtLeast(0)
-    val bottom = (if (category == GarmentCategory.BOTTOM) maxOf(rhY, lhY) + padding
-                  else maxOf(lhY, rhY) + padding).toInt().coerceAtMost(size.height.toInt())
+    // ── 1. Key measurements from landmarks ───────────────────────────────
+    val shoulderSpread = kotlin.math.abs(rsX - lsX).coerceAtLeast(1f)
+    val shoulderTopY   = minOf(lsY, rsY)
+    val shoulderCx     = (lsX + rsX) / 2f
+
+    val hipsVisible = lhVis > 0.35f && rhVis > 0.35f
+    val hipMidY     = if (hipsVisible) (lhY + rhY) / 2f
+                      else shoulderTopY + shoulderSpread * 2.6f
+    val torsoH      = (hipMidY - shoulderTopY).coerceAtLeast(shoulderSpread)
+
+    // ── 2. Width — shoulder outer edges + sleeve overhang ────────────────
+    // The bitmap is trimmed to the garment's visible pixels, so bitmap width
+    // maps directly to the shirt's flat-lay width (sleeve tip to sleeve tip).
+    // Shoulder JOINTS are inner points; a tee's full width ≈ 2.1× that spread.
+    val garmentW = shoulderSpread * 2.1f
+    val centerX  = shoulderCx  // center on shoulders — most reliable mid-X
+
+    // ── 3. Height — scale both axes together to maintain shape ───────────
+    // Start from the bitmap's natural aspect ratio at the computed width.
+    // If the natural height is shorter than the torso, scale the WHOLE
+    // garment up (width and height) so it covers shoulder-to-hip.
+    val imgAspect  = image.height.toFloat() / image.width.toFloat().coerceAtLeast(1f)
+    val naturalH   = garmentW * imgAspect
+    // We want garment to cover 105% of torso height
+    val targetH    = torsoH * 1.05f
+    val scaleUp    = if (naturalH < targetH) targetH / naturalH else 1f
+    val finalW     = garmentW * scaleUp
+    val finalH     = naturalH * scaleUp
+
+    // ── 4. Position ───────────────────────────────────────────────────────
+    // With a trimmed bitmap the top row IS the collar. The shirt's shoulder
+    // seam sits slightly above the shoulder JOINT landmark, so lift the
+    // garment up by 30% of shoulder spread to align collar with neck base.
+    val collarY = shoulderTopY - shoulderSpread * 0.60f
+    val top    = collarY.toInt().coerceAtLeast(0)
+    val left   = (centerX - finalW / 2f).toInt().coerceAtLeast(0)
+    val right  = (centerX + finalW / 2f).toInt().coerceAtMost(screenW.toInt())
+    val bottom = (top + finalH).toInt().coerceAtMost(screenH.toInt())
+
     val dstW = (right - left).coerceAtLeast(1)
     val dstH = (bottom - top).coerceAtLeast(1)
 

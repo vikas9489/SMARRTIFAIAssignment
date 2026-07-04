@@ -9,193 +9,236 @@ import javax.inject.Singleton
 import kotlin.math.min
 import kotlin.math.sqrt
 
-/**
- * Removes the background from a garment photo.
- *
- * Performance strategy:
- *   - Downscale to MAX_DIM before all heavy computation
- *   - Upscale the boolean mask back to original resolution
- *   - Apply feathered alpha on original-resolution bitmap
- *
- * Detection strategy ("inside-out"):
- *   1. Average garment colour from centre 20 % of the working image
- *   2. Average background colour from outer 12 % border strip
- *   3. Classify each pixel by which average it is closer to
- *   4. Flood-fill from centre keeping only the connected foreground blob
- *   5. Feather the silhouette boundary
- */
 @Singleton
 class BackgroundRemover @Inject constructor() {
 
     companion object {
-        private const val MAX_DIM = 600   // working-copy max dimension (fast BFS)
-        private const val FEATHER_RADIUS = 4
+        private const val MAX_DIM = 800
+        private const val FEATHER_RADIUS = 2
+        private const val DILATE_RADIUS = 2
+        // Max squared RGB distance a pixel can be from garment palette and still be foreground.
+        // Keeps dark-shirt classifiers from pulling in unrelated dark objects.
+        private const val MAX_GARMENT_DIST_SQ = 12000f   // ≈ 110 per channel
     }
 
     suspend fun removeBackground(source: Bitmap): Bitmap = withContext(Dispatchers.Default) {
 
-        // ------------------------------------------------------------------
-        // 0. Downscale to a fast working copy
-        // ------------------------------------------------------------------
+        // ── 0. Downscale ────────────────────────────────────────────────────
         val scale = min(MAX_DIM.toFloat() / source.width, MAX_DIM.toFloat() / source.height)
             .coerceAtMost(1f)
-        val wSmall = (source.width  * scale).toInt().coerceAtLeast(1)
-        val hSmall = (source.height * scale).toInt().coerceAtLeast(1)
+        val sw = (source.width  * scale).toInt().coerceAtLeast(1)
+        val sh = (source.height * scale).toInt().coerceAtLeast(1)
+        val small = Bitmap.createScaledBitmap(source, sw, sh, true)
+        val px = IntArray(sw * sh)
+        small.getPixels(px, 0, sw, 0, 0, sw, sh)
 
-        val small = Bitmap.createScaledBitmap(source, wSmall, hSmall, true)
-        val pixels = IntArray(wSmall * hSmall)
-        small.getPixels(pixels, 0, wSmall, 0, 0, wSmall, hSmall)
-
-        // ------------------------------------------------------------------
-        // 1. Average garment colour from centre 20 % region
-        // ------------------------------------------------------------------
-        val garmentColor = averageColor(
-            pixels, wSmall, hSmall,
-            xFrom = (wSmall * 0.40f).toInt(), xTo = (wSmall * 0.60f).toInt(),
-            yFrom = (hSmall * 0.40f).toInt(), yTo = (hSmall * 0.60f).toInt()
-        )
-
-        // ------------------------------------------------------------------
-        // 2. Average background colour from outer 12 % border strip
-        // ------------------------------------------------------------------
-        val strip = (min(wSmall, hSmall) * 0.12f).toInt().coerceAtLeast(4)
-        val bgColor = averageBorderColor(pixels, wSmall, hSmall, strip)
-
-        // ------------------------------------------------------------------
-        // 3. Classify every pixel: closer to garment or to background?
-        // ------------------------------------------------------------------
-        val isForeground = BooleanArray(wSmall * hSmall)
-        for (i in pixels.indices) {
-            val dG = colorDist(pixels[i], garmentColor)
-            val dB = colorDist(pixels[i], bgColor)
-            isForeground[i] = dG * 1.1f < dB   // slight bias toward keeping garment
+        // ── 1. Garment palette — 3×3 grid from centre 40 % ──────────────────
+        val cx0 = (sw * 0.30f).toInt(); val cx1 = (sw * 0.70f).toInt()
+        val cy0 = (sh * 0.30f).toInt(); val cy1 = (sh * 0.70f).toInt()
+        val cw  = ((cx1 - cx0) / 3).coerceAtLeast(1)
+        val ch  = ((cy1 - cy0) / 3).coerceAtLeast(1)
+        val garmentColors = Array(9) { k ->
+            val gx0 = cx0 + (k % 3) * cw; val gx1 = gx0 + cw
+            val gy0 = cy0 + (k / 3) * ch; val gy1 = gy0 + ch
+            averageColor(px, sw, gx0, gx1, gy0, gy1)
         }
 
-        // ------------------------------------------------------------------
-        // 4. Connected-component from centre (removes background islands)
-        // ------------------------------------------------------------------
-        val connected = BooleanArray(wSmall * hSmall)
-        var seedIdx = (hSmall / 2) * wSmall + (wSmall / 2)
+        // ── 2. Background palette — brightest pixels from each corner ────────
+        // Using brightness-biased sampling means dark objects in corners
+        // (laptop, clothes, phone) don't corrupt the background reference.
+        // The actual background (table/bedsheet) is always lighter than a shirt.
+        val cs = (min(sw, sh) * 0.20f).toInt().coerceAtLeast(8)
+        val bgColors = arrayOf(
+            brightestColor(px, sw, 0,       cs,      0,       cs),   // TL
+            brightestColor(px, sw, sw - cs, sw,      0,       cs),   // TR
+            brightestColor(px, sw, 0,       cs,      sh - cs, sh),   // BL
+            brightestColor(px, sw, sw - cs, sw,      sh - cs, sh),   // BR
+            // Also sample the mid-edges to catch more background area
+            brightestColor(px, sw, 0,       cs,      sh/2-cs/2, sh/2+cs/2),  // Left mid
+            brightestColor(px, sw, sw - cs, sw,      sh/2-cs/2, sh/2+cs/2)   // Right mid
+        )
 
-        // If dead-centre is classified background, spiral outward for a seed
-        if (!isForeground[seedIdx]) {
-            outer@ for (r in 1..40) {
+        // ── 3. Classify every pixel ──────────────────────────────────────────
+        val fg = BooleanArray(sw * sh)
+        for (i in px.indices) {
+            val dG = minDist(px[i], garmentColors)
+            val dB = minDist(px[i], bgColors)
+            // Foreground: closer to garment than background (with 10% bias)
+            // AND within absolute garment threshold (prevents leaking to
+            // unrelated objects of similar hue, e.g. dark laptop near black shirt)
+            fg[i] = dG < dB * 0.90f && dG < MAX_GARMENT_DIST_SQ
+        }
+
+        // ── 4. Connected component BFS from image centre ────────────────────
+        val connected = BooleanArray(sw * sh)
+        var seed = (sh / 2) * sw + (sw / 2)
+        if (!fg[seed]) {
+            outer@ for (r in 1..80) {
                 for (dy in -r..r) for (dx in -r..r) {
-                    val sx = wSmall / 2 + dx
-                    val sy = hSmall / 2 + dy
-                    if (sx in 0 until wSmall && sy in 0 until hSmall) {
-                        val si = sy * wSmall + sx
-                        if (isForeground[si]) { seedIdx = si; break@outer }
+                    val sx = sw / 2 + dx; val sy = sh / 2 + dy
+                    if (sx in 0 until sw && sy in 0 until sh) {
+                        val si = sy * sw + sx
+                        if (fg[si]) { seed = si; break@outer }
                     }
                 }
             }
         }
-
-        connected[seedIdx] = true
-        val queue = ArrayDeque<Int>()
-        queue.add(seedIdx)
-
-        while (queue.isNotEmpty()) {
-            val idx = queue.removeFirst()
-            val x = idx % wSmall
-            val y = idx / wSmall
+        connected[seed] = true
+        val q = ArrayDeque<Int>()
+        q.add(seed)
+        while (q.isNotEmpty()) {
+            val idx = q.removeFirst()
+            val x = idx % sw; val y = idx / sw
             for (dy in -1..1) for (dx in -1..1) {
                 if (dx == 0 && dy == 0) continue
                 val nx = x + dx; val ny = y + dy
-                if (nx in 0 until wSmall && ny in 0 until hSmall) {
-                    val ni = ny * wSmall + nx
-                    if (isForeground[ni] && !connected[ni]) {
-                        connected[ni] = true
-                        queue.add(ni)
+                if (nx in 0 until sw && ny in 0 until sh) {
+                    val ni = ny * sw + nx
+                    if (fg[ni] && !connected[ni]) { connected[ni] = true; q.add(ni) }
+                }
+            }
+        }
+
+        // ── 5. Hole fill — recover buttons/logos/print inside garment ───────
+        val reachableFromEdge = BooleanArray(sw * sh)
+        for (x in 0 until sw) {
+            enqueueIfTransparent(0,      x, sw, sh, connected, reachableFromEdge, q)
+            enqueueIfTransparent(sh - 1, x, sw, sh, connected, reachableFromEdge, q)
+        }
+        for (y in 0 until sh) {
+            enqueueIfTransparent(y, 0,      sw, sh, connected, reachableFromEdge, q)
+            enqueueIfTransparent(y, sw - 1, sw, sh, connected, reachableFromEdge, q)
+        }
+        while (q.isNotEmpty()) {
+            val idx = q.removeFirst()
+            val x = idx % sw; val y = idx / sw
+            for (dy in -1..1) for (dx in -1..1) {
+                if (dx == 0 && dy == 0) continue
+                val nx = x + dx; val ny = y + dy
+                if (nx in 0 until sw && ny in 0 until sh) {
+                    val ni = ny * sw + nx
+                    if (!connected[ni] && !reachableFromEdge[ni]) {
+                        reachableFromEdge[ni] = true; q.add(ni)
                     }
                 }
             }
         }
+        for (i in connected.indices) {
+            if (!connected[i] && !reachableFromEdge[i]) connected[i] = true
+        }
 
-        // ------------------------------------------------------------------
-        // 5. Upscale connected mask to original resolution and apply alpha
-        // ------------------------------------------------------------------
-        val origW = source.width
-        val origH = source.height
-        val origPixels = IntArray(origW * origH)
-        source.getPixels(origPixels, 0, origW, 0, 0, origW, origH)
-
-        val result = IntArray(origW * origH)
-        for (oy in 0 until origH) {
-            for (ox in 0 until origW) {
-                // Map original pixel to small-image pixel
-                val sx = (ox * scale).toInt().coerceIn(0, wSmall - 1)
-                val sy = (oy * scale).toInt().coerceIn(0, hSmall - 1)
-                val si = sy * wSmall + sx
-
-                val oi = oy * origW + ox
-                if (!connected[si]) {
-                    result[oi] = 0 // transparent
-                } else {
-                    // Feather based on small-image neighbourhood
-                    val alpha = featheredAlpha(connected, sx, sy, wSmall, hSmall, FEATHER_RADIUS)
-                    result[oi] = (origPixels[oi] and 0x00FFFFFF) or (alpha shl 24)
+        // ── 6. Edge dilation ─────────────────────────────────────────────────
+        val dilated = connected.copyOf()
+        for (y in DILATE_RADIUS until sh - DILATE_RADIUS) {
+            for (x in DILATE_RADIUS until sw - DILATE_RADIUS) {
+                if (!connected[y * sw + x]) {
+                    check@ for (dy in -DILATE_RADIUS..DILATE_RADIUS)
+                        for (dx in -DILATE_RADIUS..DILATE_RADIUS) {
+                            if (connected[(y + dy) * sw + (x + dx)]) {
+                                dilated[y * sw + x] = true; break@check
+                            }
+                        }
                 }
             }
         }
 
-        val output = Bitmap.createBitmap(origW, origH, Bitmap.Config.ARGB_8888)
-        output.setPixels(result, 0, origW, 0, 0, origW, origH)
-        output
-    }
-
-    // -----------------------------------------------------------------------
-    // Helpers
-    // -----------------------------------------------------------------------
-
-    private fun averageColor(
-        pixels: IntArray, w: Int, h: Int,
-        xFrom: Int, xTo: Int, yFrom: Int, yTo: Int
-    ): Int {
-        var r = 0L; var g = 0L; var b = 0L; var count = 0
-        for (y in yFrom until yTo) for (x in xFrom until xTo) {
-            val p = pixels[y * w + x]
-            r += Color.red(p); g += Color.green(p); b += Color.blue(p)
-            count++
-        }
-        if (count == 0) return Color.GRAY
-        return Color.rgb((r / count).toInt(), (g / count).toInt(), (b / count).toInt())
-    }
-
-    private fun averageBorderColor(pixels: IntArray, w: Int, h: Int, strip: Int): Int {
-        var r = 0L; var g = 0L; var b = 0L; var count = 0
-        fun add(p: Int) { r += Color.red(p); g += Color.green(p); b += Color.blue(p); count++ }
-        for (y in 0 until h) {
-            for (x in 0 until strip) add(pixels[y * w + x])
-            for (x in (w - strip) until w) add(pixels[y * w + x])
-        }
-        for (x in 0 until w) {
-            for (y in 0 until strip) add(pixels[y * w + x])
-            for (y in (h - strip) until h) add(pixels[y * w + x])
-        }
-        if (count == 0) return Color.WHITE
-        return Color.rgb((r / count).toInt(), (g / count).toInt(), (b / count).toInt())
-    }
-
-    private fun colorDist(a: Int, b: Int): Float {
-        val dr = (Color.red(a)   - Color.red(b)).toFloat()
-        val dg = (Color.green(a) - Color.green(b)).toFloat()
-        val db = (Color.blue(a)  - Color.blue(b)).toFloat()
-        return sqrt(dr * dr + dg * dg + db * db)
-    }
-
-    private fun featheredAlpha(
-        connected: BooleanArray,
-        x: Int, y: Int, w: Int, h: Int, radius: Int
-    ): Int {
-        var minDist = radius.toFloat()
-        for (dy in -radius..radius) for (dx in -radius..radius) {
-            val nx = x + dx; val ny = y + dy
-            if (nx in 0 until w && ny in 0 until h && !connected[ny * w + nx]) {
-                val d = sqrt((dx * dx + dy * dy).toFloat())
-                if (d < minDist) minDist = d
+        // ── 7. Apply mask to full-res source ─────────────────────────────────
+        val ow = source.width; val oh = source.height
+        val origPx = IntArray(ow * oh)
+        source.getPixels(origPx, 0, ow, 0, 0, ow, oh)
+        val result = IntArray(ow * oh)
+        for (oy in 0 until oh) {
+            for (ox in 0 until ow) {
+                val sx = (ox * scale).toInt().coerceIn(0, sw - 1)
+                val sy = (oy * scale).toInt().coerceIn(0, sh - 1)
+                val oi = oy * ow + ox
+                if (!dilated[sy * sw + sx]) {
+                    result[oi] = 0
+                } else {
+                    val alpha = featheredAlpha(dilated, sx, sy, sw, sh, FEATHER_RADIUS)
+                    result[oi] = (origPx[oi] and 0x00FFFFFF) or (alpha shl 24)
+                }
             }
         }
-        return ((minDist / radius) * 255).toInt().coerceIn(0, 255)
+        val out = Bitmap.createBitmap(ow, oh, Bitmap.Config.ARGB_8888)
+        out.setPixels(result, 0, ow, 0, 0, ow, oh)
+        // Trim transparent margins so the bitmap bounds = the garment bounds.
+        // Overlay placement sizes the whole bitmap, so margins would make the
+        // garment render smaller and lower than intended.
+        BitmapUtils.trimTransparent(out)
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    /**
+     * Returns the average colour of the BRIGHTEST 30 % of pixels in the region.
+     * Ignores dark objects in corners so the true background (table/bedsheet)
+     * is sampled even when a laptop or dark clothes sit in the corner.
+     */
+    private fun brightestColor(px: IntArray, w: Int, x0: Int, x1: Int, y0: Int, y1: Int): Int {
+        val xs = x0.coerceAtLeast(0); val xe = x1.coerceAtMost(w)
+        val ys = y0.coerceAtLeast(0); val ye = y1.coerceAtMost(px.size / w)
+        val samples = mutableListOf<Int>()
+        for (y in ys until ye) for (x in xs until xe) {
+            val idx = y * w + x
+            if (idx < px.size) samples.add(px[idx])
+        }
+        if (samples.isEmpty()) return Color.LTGRAY
+        // Sort by brightness descending, keep top 30 %
+        val sorted = samples.sortedByDescending {
+            Color.red(it) + Color.green(it) + Color.blue(it)
+        }
+        val topK = sorted.take((sorted.size * 0.30f).toInt().coerceAtLeast(1))
+        var r = 0L; var g = 0L; var b = 0L
+        for (c in topK) { r += Color.red(c); g += Color.green(c); b += Color.blue(c) }
+        return Color.rgb((r / topK.size).toInt(), (g / topK.size).toInt(), (b / topK.size).toInt())
+    }
+
+    private fun averageColor(px: IntArray, w: Int, x0: Int, x1: Int, y0: Int, y1: Int): Int {
+        var r = 0L; var g = 0L; var b = 0L; var n = 0
+        val xs = x0.coerceAtLeast(0); val xe = x1.coerceAtMost(w)
+        val ys = y0.coerceAtLeast(0); val ye = y1.coerceAtMost(px.size / w)
+        for (y in ys until ye) for (x in xs until xe) {
+            val idx = y * w + x
+            if (idx < px.size) {
+                r += Color.red(px[idx]); g += Color.green(px[idx]); b += Color.blue(px[idx]); n++
+            }
+        }
+        if (n == 0) return Color.GRAY
+        return Color.rgb((r / n).toInt(), (g / n).toInt(), (b / n).toInt())
+    }
+
+    private fun minDist(pixel: Int, palette: Array<Int>): Float {
+        val pr = Color.red(pixel); val pg = Color.green(pixel); val pb = Color.blue(pixel)
+        var min = Float.MAX_VALUE
+        for (c in palette) {
+            val dr = (pr - Color.red(c)).toFloat()
+            val dg = (pg - Color.green(c)).toFloat()
+            val db = (pb - Color.blue(c)).toFloat()
+            val d = dr * dr + dg * dg + db * db
+            if (d < min) min = d
+        }
+        return min
+    }
+
+    private fun enqueueIfTransparent(
+        y: Int, x: Int, sw: Int, sh: Int,
+        connected: BooleanArray, visited: BooleanArray, q: ArrayDeque<Int>
+    ) {
+        if (x < 0 || x >= sw || y < 0 || y >= sh) return
+        val i = y * sw + x
+        if (!connected[i] && !visited[i]) { visited[i] = true; q.add(i) }
+    }
+
+    private fun featheredAlpha(mask: BooleanArray, x: Int, y: Int, w: Int, h: Int, r: Int): Int {
+        var minD = r.toFloat()
+        for (dy in -r..r) for (dx in -r..r) {
+            val nx = x + dx; val ny = y + dy
+            if (nx in 0 until w && ny in 0 until h && !mask[ny * w + nx]) {
+                val d = sqrt((dx * dx + dy * dy).toFloat())
+                if (d < minD) minD = d
+            }
+        }
+        return ((minD / r) * 255).toInt().coerceIn(0, 255)
     }
 }

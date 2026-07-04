@@ -27,6 +27,8 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Sign with the debug key so the APK is directly installable.
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 

@@ -1,7 +1,15 @@
 package com.vikas.tryon.presentation.camera
 
+import android.app.Activity
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Rect
+import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.util.Size
+import android.view.PixelCopy
+import android.view.View
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
@@ -18,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -34,6 +43,7 @@ fun CameraScreen(
     onNavigateBack: () -> Unit,
     onOpenGarments: () -> Unit,
     onOpenMeasurements: () -> Unit,
+    onOpenOutfits: () -> Unit,
     viewModel: CameraViewModel = hiltViewModel()
 ) {
     val cameraPermission = rememberPermissionState(android.Manifest.permission.CAMERA)
@@ -44,6 +54,34 @@ fun CameraScreen(
     val garmentBitmap by viewModel.garmentBitmap.collectAsState()
     val isFrontCamera by viewModel.isFrontCamera.collectAsState()
     val showGarment by viewModel.showGarment.collectAsState()
+    val outfitSaved by viewModel.outfitSaved.collectAsState()
+
+    val snackbarHostState = remember { SnackbarHostState() }
+    val rootView = LocalView.current
+    val activityContext = LocalContext.current
+
+    // When true, UI chrome (buttons, skeleton, chips) is hidden for one frame
+    // so the screenshot contains only the camera feed + garment overlay.
+    var isCapturing by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isCapturing) {
+        if (isCapturing) {
+            // Wait two frames so the hidden-UI recomposition is actually on screen
+            withFrameNanos {}
+            withFrameNanos {}
+            captureScreen(rootView, activityContext) { bitmap ->
+                if (bitmap != null) viewModel.saveOutfit(bitmap)
+            }
+            isCapturing = false
+        }
+    }
+
+    LaunchedEffect(outfitSaved) {
+        if (outfitSaved) {
+            snackbarHostState.showSnackbar("Outfit saved!")
+            viewModel.consumeOutfitSaved()
+        }
+    }
 
     LaunchedEffect(Unit) {
         if (!cameraPermission.status.isGranted) {
@@ -60,6 +98,10 @@ fun CameraScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 80.dp)
+        )
         // Camera Preview
         val context = LocalContext.current
         val lifecycleOwner = LocalLifecycleOwner.current
@@ -91,10 +133,12 @@ fun CameraScreen(
 
         // Pose overlay
         if (smoothedLandmarks != null) {
-            PoseLandmarkOverlay(
-                landmarks = smoothedLandmarks,
-                modifier = Modifier.fillMaxSize()
-            )
+            if (!isCapturing) {
+                PoseLandmarkOverlay(
+                    landmarks = smoothedLandmarks,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
 
             if (showGarment && selectedGarment != null) {
                 GarmentOverlay(
@@ -108,7 +152,7 @@ fun CameraScreen(
         }
 
         // Top bar
-        Row(
+        if (!isCapturing) Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
@@ -155,7 +199,7 @@ fun CameraScreen(
         }
 
         // Bottom controls
-        Column(
+        if (!isCapturing) Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()
@@ -165,7 +209,7 @@ fun CameraScreen(
         ) {
             // Secondary controls
             Row(
-                horizontalArrangement = Arrangement.spacedBy(20.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 CameraControlButton(
@@ -183,6 +227,26 @@ fun CameraScreen(
                     label = "Measure",
                     onClick = onOpenMeasurements
                 )
+                CameraControlButton(
+                    icon = Icons.Default.CollectionsBookmark,
+                    label = "Outfits",
+                    onClick = onOpenOutfits
+                )
+            }
+
+            // Save Outfit button — only visible when a garment is active and pose detected
+            if (selectedGarment != null && smoothedLandmarks != null) {
+                Button(
+                    onClick = { isCapturing = true },
+                    shape = RoundedCornerShape(24.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Icon(Icons.Default.SaveAlt, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Save Outfit", style = MaterialTheme.typography.labelMedium)
+                }
             }
 
             // Main controls row
@@ -204,7 +268,7 @@ fun CameraScreen(
         }
 
         // Pose detection status indicator
-        if (smoothedLandmarks != null) {
+        if (smoothedLandmarks != null && !isCapturing) {
             Surface(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
@@ -275,6 +339,44 @@ private fun PermissionDeniedScreen(
             Text("Grant Permission")
         }
         TextButton(onClick = onNavigateBack) { Text("Go Back") }
+    }
+}
+
+/**
+ * Screenshots the current window content (camera preview + garment overlay).
+ * PixelCopy is required because the camera preview renders on a separate
+ * surface that ordinary View drawing cannot read.
+ */
+private fun captureScreen(view: View, context: Context, onResult: (Bitmap?) -> Unit) {
+    val activity = context as? Activity
+    if (activity == null || view.width == 0 || view.height == 0) {
+        onResult(null)
+        return
+    }
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
+        val location = IntArray(2)
+        view.getLocationInWindow(location)
+        try {
+            PixelCopy.request(
+                activity.window,
+                Rect(location[0], location[1], location[0] + view.width, location[1] + view.height),
+                bitmap,
+                { result ->
+                    onResult(if (result == PixelCopy.SUCCESS) bitmap else null)
+                },
+                Handler(Looper.getMainLooper())
+            )
+        } catch (e: Exception) {
+            onResult(null)
+        }
+    } else {
+        // API 24-25 fallback: works because PreviewView runs in COMPATIBLE
+        // (TextureView) mode, whose content is drawable through the view hierarchy.
+        val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
+        view.draw(android.graphics.Canvas(bitmap))
+        onResult(bitmap)
     }
 }
 

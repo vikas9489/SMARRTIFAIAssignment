@@ -39,5 +39,9 @@ ehthumbs.db
 # Project-specific
 .tmp/
 
+# ML model assets (downloaded separately)
 app/src/main/assets/*.task
 app/src/main/assets/*.tflite
+
+# Kotlin compiler logs
+.kotlin/

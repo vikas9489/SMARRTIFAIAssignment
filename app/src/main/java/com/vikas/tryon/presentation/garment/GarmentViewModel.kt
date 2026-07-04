@@ -1,15 +1,13 @@
 package com.vikas.tryon.presentation.garment
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.vikas.tryon.data.model.Garment
 import com.vikas.tryon.data.model.GarmentCategory
 import com.vikas.tryon.data.repository.GarmentRepository
 import com.vikas.tryon.domain.usecase.GetGarmentsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.*
 import javax.inject.Inject
 
 @HiltViewModel
@@ -22,14 +20,23 @@ class GarmentViewModel @Inject constructor(
     val selectedCategory: StateFlow<GarmentCategory?> = _selectedCategory.asStateFlow()
 
     val selectedGarmentId: Flow<Int?> = garmentRepository.selectedGarmentId
-
-    // Favourite IDs from Room — updates reactively
     val favouriteIds: Flow<List<Int>> = garmentRepository.favouriteIds
 
-    val garments: List<Garment>
-        get() = _selectedCategory.value
-            ?.let { getGarmentsUseCase.getByCategory(it) }
-            ?: getGarmentsUseCase.getAllGarments()
+    // Scanned garments loaded from Room — persists across restarts
+    val scannedGarments: StateFlow<List<Garment>> = garmentRepository.scannedGarments
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // All garments = sample library + persisted scanned garments
+    val garments: StateFlow<List<Garment>> = combine(
+        _selectedCategory,
+        scannedGarments
+    ) { category, scanned ->
+        val sample = if (category == null) getGarmentsUseCase.getAllGarments()
+                     else getGarmentsUseCase.getByCategory(category)
+        val filteredScanned = if (category == null || category == GarmentCategory.SCANNED) scanned
+                              else emptyList()
+        sample + filteredScanned
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), getGarmentsUseCase.getAllGarments())
 
     fun selectCategory(category: GarmentCategory?) {
         _selectedCategory.value = category

@@ -292,7 +292,7 @@ private fun bindScanCamera(
     previewView: PreviewView
 ): ImageCapture {
     val imageCapture = ImageCapture.Builder()
-        .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+        .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
         .build()
 
     val cameraProviderFuture = ProcessCameraProvider.getInstance(context)

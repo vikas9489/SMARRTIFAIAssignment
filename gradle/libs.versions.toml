@@ -15,7 +15,7 @@ lifecycleViewmodelCompose = "2.8.7"
 cameraX = "1.4.1"
 
 # MediaPipe
-mediapipe = "0.10.14"
+mediapipe = "0.10.26"
 
 # Hilt
 hilt = "2.51.1"

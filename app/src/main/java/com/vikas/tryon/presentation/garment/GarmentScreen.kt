@@ -43,13 +43,14 @@ fun GarmentScreen(
     val selectedCategory by viewModel.selectedCategory.collectAsState()
     val selectedGarmentId by viewModel.selectedGarmentId.collectAsState(null)
     val favouriteIds by viewModel.favouriteIds.collectAsState(emptyList())
+    val allGarments by viewModel.garments.collectAsState()
 
     // "Favourites" is a virtual filter, not a GarmentCategory
     var showFavouritesOnly by remember { mutableStateOf(false) }
 
-    val displayedGarments = remember(viewModel.garments, showFavouritesOnly, favouriteIds) {
-        if (showFavouritesOnly) viewModel.garments.filter { it.id in favouriteIds }
-        else viewModel.garments
+    val displayedGarments = remember(allGarments, showFavouritesOnly, favouriteIds) {
+        if (showFavouritesOnly) allGarments.filter { it.id in favouriteIds }
+        else allGarments
     }
 
     Scaffold(

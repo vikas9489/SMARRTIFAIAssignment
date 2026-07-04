@@ -15,6 +15,7 @@ import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarkerResult
 import com.vikas.tryon.data.model.Garment
 import com.vikas.tryon.data.repository.AvatarRepository
 import com.vikas.tryon.data.repository.GarmentRepository
+import com.vikas.tryon.data.repository.OutfitRepository
 import com.vikas.tryon.domain.usecase.EstimateMeasurementsUseCase
 import com.vikas.tryon.utils.GarmentBitmapLoader
 import com.vikas.tryon.utils.LandmarkSmoother
@@ -34,6 +35,7 @@ class CameraViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val garmentRepository: GarmentRepository,
     private val avatarRepository: AvatarRepository,
+    private val outfitRepository: OutfitRepository,
     private val estimateMeasurementsUseCase: EstimateMeasurementsUseCase,
     private val landmarkSmoother: LandmarkSmoother,
     private val garmentBitmapLoader: GarmentBitmapLoader
@@ -63,13 +65,41 @@ class CameraViewModel @Inject constructor(
     private val _showGarment = MutableStateFlow(true)
     val showGarment: StateFlow<Boolean> = _showGarment.asStateFlow()
 
+    private val _outfitSaved = MutableStateFlow(false)
+    val outfitSaved: StateFlow<Boolean> = _outfitSaved.asStateFlow()
+
     private var poseLandmarker: PoseLandmarker? = null
+
+    // Local cache of scanned garments so we can look them up by ID after restart
+    private var cachedScannedGarments: List<Garment> = emptyList()
 
     init {
         initializeLandmarker()
+
+        // Keep the scanned garment cache up to date
+        viewModelScope.launch {
+            garmentRepository.scannedGarments.collect { list ->
+                cachedScannedGarments = list
+                // If the currently selected garment is a scanned one whose bitmap was
+                // loaded from DB (not from the transient addScannedGarment call), refresh it
+                val currentId = _selectedGarment.value?.id
+                if (currentId != null && list.any { it.id == currentId }) {
+                    val refreshed = list.find { it.id == currentId }
+                    if (refreshed != null && _garmentBitmap.value == null) {
+                        _selectedGarment.value = refreshed
+                        _garmentBitmap.value = refreshed.scannedBitmap
+                    }
+                }
+            }
+        }
+
         viewModelScope.launch {
             garmentRepository.selectedGarmentId.collect { id ->
-                val garment = id?.let { garmentRepository.getGarmentById(it) }
+                // Look up in sample library first, then fall back to persisted scanned garments
+                val garment = id?.let {
+                    garmentRepository.getGarmentById(it)
+                        ?: cachedScannedGarments.find { g -> g.id == it }
+                }
                 _selectedGarment.value = garment
                 _garmentBitmap.value = withContext(Dispatchers.Default) {
                     try {
@@ -147,6 +177,22 @@ class CameraViewModel @Inject constructor(
         if (rotationDegrees == 0f) return bitmap
         val matrix = Matrix().apply { postRotate(rotationDegrees) }
         return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+    }
+
+    fun saveOutfit(screenshot: Bitmap) {
+        val garment = _selectedGarment.value ?: return
+        viewModelScope.launch {
+            try {
+                outfitRepository.saveOutfit(screenshot, garment.name)
+                _outfitSaved.value = true
+            } catch (e: Exception) {
+                Log.e("CameraViewModel", "saveOutfit failed: ${e.message}")
+            }
+        }
+    }
+
+    fun consumeOutfitSaved() {
+        _outfitSaved.value = false
     }
 
     override fun onCleared() {

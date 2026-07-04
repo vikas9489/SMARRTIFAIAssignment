@@ -32,6 +32,7 @@ fun HomeScreen(
     onStartTryOn: () -> Unit,
     onOpenAvatar: () -> Unit,
     onOpenGarments: () -> Unit,
+    onOpenOutfits: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val avatar by viewModel.avatar.collectAsState(initial = com.vikas.tryon.data.model.Avatar())
@@ -40,7 +41,7 @@ fun HomeScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Text("ClothesFit", fontWeight = FontWeight.Bold)
+                    Text("TryOn", fontWeight = FontWeight.Bold)
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface
@@ -125,10 +126,29 @@ fun HomeScreen(
                     modifier = Modifier.weight(1f),
                     icon = Icons.Default.Checkroom,
                     label = "Wardrobe",
-                    subtitle = "12 items",
+                    subtitle = "Browse garments",
                     color = MaterialTheme.colorScheme.tertiaryContainer,
                     onClick = onOpenGarments
                 )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+            ) {
+                QuickActionCard(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Default.CollectionsBookmark,
+                    label = "My Outfits",
+                    subtitle = "Saved looks",
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    onClick = onOpenOutfits
+                )
+                Spacer(Modifier.width(12.dp))
+                Spacer(Modifier.weight(1f))
             }
 
             Spacer(Modifier.height(24.dp))
